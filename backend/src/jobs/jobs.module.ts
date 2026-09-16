@@ -10,10 +10,13 @@ import { JobsService } from './jobs.service';
 @Module({
   imports: [
     BullModule.registerQueue(
-      { name: 'exports' },
-      { name: 'notifications' },
-      { name: 'timesheet-reminders' },
-      { name: 'reports' },
+      ...['exports', 'notifications', 'timesheet-reminders', 'reports'].map((name) => ({
+        name,
+        defaultJobOptions: {
+          removeOnComplete: { age: 3600, count: 100 },
+          removeOnFail: { age: 86400, count: 100 },
+        },
+      })),
     ),
     StorageModule,
   ],

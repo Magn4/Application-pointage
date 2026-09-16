@@ -1,18 +1,15 @@
-# Paid Render configuration kept at this path so the existing Blueprint can
-# upgrade its current resources in place.
+# Disposable free test environment. No persistent disk: MinIO uploads are lost
+# on restart/redeploy. Free PostgreSQL expires after 30 days. Not for real data.
+# Do not apply this to existing paid resources or remove their persistent disk.
 services:
   - type: web
     name: pointage360-free
     runtime: docker
-    plan: 0.5c-512mb
+    plan: free
     region: frankfurt
     dockerfilePath: ./docker/render-free.Dockerfile
     dockerContext: .
     healthCheckPath: /api/health/live
-    disk:
-      name: pointage360-files
-      mountPath: /var/data
-      sizeGB: 10
     envVars:
       - key: NODE_ENV
         value: production
@@ -26,6 +23,10 @@ services:
         value: "true"
       - key: SEED_DEMO_ON_START
         value: "false"
+      - key: BOOTSTRAP_DEMO_ON_START
+        value: "true"
+      - key: DEMO_PASSWORD
+        sync: false
       - key: WEB_ORIGIN
         value: https://pointage360-free.onrender.com
       - key: DATABASE_URL
@@ -62,21 +63,22 @@ services:
       - key: MINIO_BUCKET
         value: pointage360
       - key: MINIO_DATA_DIR
-        value: /var/data/minio
+        value: /tmp/pointage360-minio
+      - key: STORAGE_PROXY_DOWNLOADS
+        value: "true"
 
   - type: keyvalue
     name: pointage360-redis-free
     plan: free
     region: frankfurt
     ipAllowList: []
-    maxmemoryPolicy: allkeys-lru
+    maxmemoryPolicy: noeviction
 
 databases:
   - name: pointage360-db-free
-    plan: 0.1c-256mb
+    plan: free
     region: frankfurt
     databaseName: pointage360
     user: pointage360
     postgresMajorVersion: "16"
-    diskSizeGB: 1
     ipAllowList: []

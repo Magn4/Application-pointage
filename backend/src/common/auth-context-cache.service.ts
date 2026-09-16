@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { TenantStatus } from '@prisma/client';
 import Redis from 'ioredis';
 import { CurrentUserContext } from './types';
+import { redisOptions } from '../config/redis';
 
 type CachedTenant = {
   id: string;
@@ -20,9 +21,7 @@ export class AuthContextCacheService implements OnModuleDestroy {
 
     this.client = enabled
       ? new Redis({
-          host: this.config.get<string>('REDIS_HOST') ?? '127.0.0.1',
-          port: Number(this.config.get<string>('REDIS_PORT') ?? 6379),
-          family: 4,
+          ...redisOptions(this.config),
           lazyConnect: true,
           maxRetriesPerRequest: 1,
           retryStrategy: () => null,

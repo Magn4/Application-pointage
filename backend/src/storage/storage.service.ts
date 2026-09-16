@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { Client } from 'minio';
 import { Readable } from 'stream';
@@ -31,7 +32,41 @@ export class StorageService {
 
   async presignedGetObject(key: string, expirySeconds: number) {
     await this.ensureBucket();
+    if (this.readBoolean('STORAGE_PROXY_DOWNLOADS', false)) {
+      const payload = Buffer.from(JSON.stringify({ key, exp: Math.floor(Date.now() / 1000) + expirySeconds })).toString('base64url');
+      return `/api/storage/download?token=${payload}.${this.signDownload(payload)}`;
+    }
     return this.client.presignedGetObject(this.bucket, key, expirySeconds);
+  }
+
+  async download(token: string) {
+    if (typeof token !== 'string' || token.length > 8192) throw new ForbiddenException('Invalid download link');
+    const parts = token.split('.');
+    if (parts.length !== 2) throw new ForbiddenException('Invalid download link');
+    const [payload, signature] = parts as [string, string];
+    const expected = Buffer.from(this.signDownload(payload));
+    const actual = Buffer.from(signature);
+    if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+      throw new ForbiddenException('Invalid download link');
+    }
+    let data: { key: string; exp: number };
+    try {
+      data = JSON.parse(Buffer.from(payload, 'base64url').toString());
+      if (!data || typeof data.key !== 'string' || !data.key || !Number.isSafeInteger(data.exp) || data.exp <= Date.now() / 1000) {
+        throw new Error('Expired');
+      }
+    } catch {
+      throw new ForbiddenException('Invalid or expired download link');
+    }
+    const stat = await this.client.statObject(this.bucket, data.key);
+    const stream = await this.client.getObject(this.bucket, data.key);
+    return { stream, size: stat.size };
+  }
+
+  private signDownload(payload: string) {
+    const secret = this.config.get<string>('JWT_ACCESS_SECRET');
+    if (!secret) throw new Error('JWT_ACCESS_SECRET is required for download links');
+    return createHmac('sha256', secret).update(`storage-download:${payload}`).digest('base64url');
   }
 
   async check() {

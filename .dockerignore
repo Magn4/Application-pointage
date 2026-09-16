@@ -22,3 +22,10 @@ test-results
 ~$*
 _tmp_*
 test_write
+**/node_modules
+**/.next
+**/dist
+.env.*
+backups
+*.dump
+.DS_Store

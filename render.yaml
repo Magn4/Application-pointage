@@ -1,8 +1,9 @@
-# Paid Render Blueprint. Uses the same resource names as render.free.yaml so the
-# free stack can be upgraded in place, with persistent storage added for MinIO.
+# Separate paid deployment. Does not rename or upgrade the free test resources.
+# Redis remains on the free plan: a workspace with an existing free Redis cannot
+# create another. Resolve that limit before deploying; do not silently add costs.
 services:
   - type: web
-    name: pointage360-free
+    name: pointage360-paid
     runtime: docker
     plan: 0.5c-512mb
     region: frankfurt
@@ -10,7 +11,7 @@ services:
     dockerContext: .
     healthCheckPath: /api/health/live
     disk:
-      name: pointage360-files
+      name: pointage360-files-paid
       mountPath: /var/data
       sizeGB: 10
     envVars:
@@ -26,16 +27,22 @@ services:
         value: "true"
       - key: SEED_DEMO_ON_START
         value: "false"
+      # Creates the initial Futura HR account only if the database is empty.
+      - key: BOOTSTRAP_DEMO_ON_START
+        value: "true"
+      - key: DEMO_PASSWORD
+        # Public initial password only. Change the account password after login.
+        value: "PointageDemo2026!"
       - key: WEB_ORIGIN
-        value: https://pointage360-free.onrender.com
+        value: https://pointage360-paid.onrender.com
       - key: DATABASE_URL
         fromDatabase:
-          name: pointage360-db-free
+          name: pointage360-db-paid
           property: connectionString
       - key: REDIS_URL
         fromService:
           type: keyvalue
-          name: pointage360-redis-free
+          name: pointage360-redis-paid
           property: connectionString
       - key: JWT_ACCESS_SECRET
         generateValue: true
@@ -63,16 +70,18 @@ services:
         value: pointage360
       - key: MINIO_DATA_DIR
         value: /var/data/minio
+      - key: STORAGE_PROXY_DOWNLOADS
+        value: "true"
 
   - type: keyvalue
-    name: pointage360-redis-free
+    name: pointage360-redis-paid
     plan: free
     region: frankfurt
     ipAllowList: []
-    maxmemoryPolicy: allkeys-lru
+    maxmemoryPolicy: noeviction
 
 databases:
-  - name: pointage360-db-free
+  - name: pointage360-db-paid
     plan: 0.1c-256mb
     region: frankfurt
     databaseName: pointage360

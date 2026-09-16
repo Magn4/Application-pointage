@@ -5,10 +5,20 @@ const prisma = new PrismaClient();
 const password = process.env.DEMO_PASSWORD ?? 'Password123!';
 const FUTURA_SLUG = 'futura-expertise';
 const FUTURA_EMAIL = 'contact@futura-expert.com';
-const RESOURCE_MANAGER_EMAIL = 'a.elyoussefi@futura-expert.com';
-const HR_EMAIL = 'rh@futura-expert.com';
+const HR_EMAIL = 'a.elyoussefi@futura-expert.com';
 
 async function main() {
+  // Free deployment bootstrap must never reset passwords or delete existing data.
+  const bootstrapOnly = process.env.DEMO_BOOTSTRAP_ONLY === 'true';
+  if (bootstrapOnly) {
+    if (await prisma.tenant.count() || await prisma.user.count()) {
+      console.log('Demo bootstrap skipped: database already initialized. Existing passwords unchanged.');
+      return;
+    }
+    if (!process.env.DEMO_PASSWORD || password.length < 12) {
+      throw new Error('Set DEMO_PASSWORD to at least 12 characters before bootstrapping the demo.');
+    }
+  }
   const passwordHash = await bcrypt.hash(password, 12);
 
   const enterprise = await prisma.subscriptionPlan.upsert({
@@ -55,47 +65,47 @@ async function main() {
     select: { id: true, name: true, slug: true },
   });
 
-  const deleteResult = await prisma.tenant.deleteMany({
+  const deleteResult = bootstrapOnly ? { count: 0 } : await prisma.tenant.deleteMany({
     where: { slug: { not: FUTURA_SLUG } },
   });
 
-  const resourceManager = await prisma.user.upsert({
-    where: { email: RESOURCE_MANAGER_EMAIL },
+  const hr = await prisma.user.upsert({
+    where: { email: HR_EMAIL },
     update: {
       tenantId: futura.id,
       passwordHash,
       firstName: 'Abdelouahed',
       lastName: 'El Youssefi',
-      role: UserRole.RESOURCE_MANAGER,
+      role: UserRole.HR,
       status: UserStatus.ACTIVE,
       deletedAt: null,
     },
     create: {
       tenantId: futura.id,
-      email: RESOURCE_MANAGER_EMAIL,
+      email: HR_EMAIL,
       passwordHash,
       firstName: 'Abdelouahed',
       lastName: 'El Youssefi',
-      role: UserRole.RESOURCE_MANAGER,
+      role: UserRole.HR,
       status: UserStatus.ACTIVE,
     },
   });
 
   await prisma.employeeProfile.upsert({
-    where: { userId: resourceManager.id },
+    where: { userId: hr.id },
     update: {
       tenantId: futura.id,
-      employeeNumber: 'FE-RM-001',
-      jobTitle: 'Ressource Manager',
+      employeeNumber: 'FE-RH-001',
+      jobTitle: 'Responsable RH',
       contractType: 'CDI',
       hireDate: new Date('2026-01-01'),
       status: 'ACTIVE',
     },
     create: {
       tenantId: futura.id,
-      userId: resourceManager.id,
-      employeeNumber: 'FE-RM-001',
-      jobTitle: 'Ressource Manager',
+      userId: hr.id,
+      employeeNumber: 'FE-RH-001',
+      jobTitle: 'Responsable RH',
       contractType: 'CDI',
       hireDate: new Date('2026-01-01'),
       annualLeaveBalance: 18,
@@ -150,51 +160,6 @@ async function main() {
     });
   }
 
-  const hrPasswordHash = passwordHash;
-  const hr = await prisma.user.upsert({
-    where: { email: HR_EMAIL },
-    update: {
-      tenantId: futura.id,
-      passwordHash: hrPasswordHash,
-      firstName: 'Responsable',
-      lastName: 'RH',
-      role: UserRole.HR,
-      status: UserStatus.ACTIVE,
-      deletedAt: null,
-    },
-    create: {
-      tenantId: futura.id,
-      email: HR_EMAIL,
-      passwordHash: hrPasswordHash,
-      firstName: 'Responsable',
-      lastName: 'RH',
-      role: UserRole.HR,
-      status: UserStatus.ACTIVE,
-    },
-  });
-
-  await prisma.employeeProfile.upsert({
-    where: { userId: hr.id },
-    update: {
-      tenantId: futura.id,
-      employeeNumber: 'FE-RH-001',
-      jobTitle: 'Responsable RH',
-      contractType: 'CDI',
-      hireDate: new Date('2026-01-01'),
-      status: 'ACTIVE',
-    },
-    create: {
-      tenantId: futura.id,
-      userId: hr.id,
-      employeeNumber: 'FE-RH-001',
-      jobTitle: 'Responsable RH',
-      contractType: 'CDI',
-      hireDate: new Date('2026-01-01'),
-      annualLeaveBalance: 18,
-      status: 'ACTIVE',
-    },
-  });
-
   await prisma.tenantSettings.upsert({
     where: { tenantId: futura.id },
     update: {},
@@ -212,7 +177,7 @@ async function main() {
         keptTenant: futura.slug,
         deletedTenants: tenantsToDelete,
         deletedTenantCount: deleteResult.count,
-        resourceManager: resourceManager.email,
+        hr: hr.email,
         tenantsLeft,
       },
       null,

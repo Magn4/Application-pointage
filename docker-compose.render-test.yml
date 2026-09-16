@@ -1,0 +1,57 @@
+# Isolated local verification; never connect this stack to a real database.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/render-free.Dockerfile
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 0.5
+    ports:
+      - "127.0.0.1:18080:10000"
+    environment:
+      PORT: "10000"
+      NODE_ENV: production
+      DATABASE_URL: postgresql://render_test:local-test-only@postgres:5432/render_test
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: local-test-access-secret-at-least-32-characters
+      JWT_REFRESH_SECRET: local-test-refresh-secret-at-least-32-characters
+      WEB_ORIGIN: http://127.0.0.1:18080
+      ALLOW_INSECURE_ORIGIN: "true"
+      MINIO_ENDPOINT: 127.0.0.1
+      MINIO_PORT: "9000"
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: local-test-minio
+      MINIO_SECRET_KEY: local-test-minio-password
+      STORAGE_PROXY_DOWNLOADS: "true"
+      SEED_DEMO_ON_START: "false"
+    volumes:
+      - test-files:/var/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  postgres:
+    image: postgres:16-alpine
+    mem_limit: 256m
+    environment:
+      POSTGRES_USER: render_test
+      POSTGRES_PASSWORD: local-test-only
+      POSTGRES_DB: render_test
+    volumes:
+      - test-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U render_test -d render_test"]
+      interval: 2s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 25mb --maxmemory-policy noeviction --save "" --appendonly no
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      retries: 30
+volumes:
+  test-files:
+  test-db:

@@ -36,7 +36,8 @@ export class RequestLoggingInterceptor implements NestInterceptor {
     const payload = {
       event: 'http_request',
       method: request.method,
-      path: request.originalUrl ?? request.url,
+      // Query strings can contain signed download credentials.
+      path: (request.originalUrl ?? request.url).split('?')[0],
       statusCode,
       durationMs,
       userId: request.user?.userId,

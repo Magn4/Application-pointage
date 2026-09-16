@@ -1,0 +1,12 @@
+# Overlay: disposable MinIO filesystem like Render Free; database stays separate.
+# Use with -f docker-compose.render-test.yml -f docker-compose.render-free-test.yml
+services:
+  app:
+    cpus: 0.1
+    environment:
+      MINIO_DATA_DIR: /tmp/pointage360-minio
+      BOOTSTRAP_DEMO_ON_START: "true"
+      DEMO_PASSWORD: LocalDemoTest123!
+    volumes: !reset []
+  postgres:
+    cpus: 0.1

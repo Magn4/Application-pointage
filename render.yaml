@@ -13,7 +13,7 @@ services:
     disk:
       name: pointage360-files-paid
       mountPath: /var/data
-      sizeGB: 10
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production

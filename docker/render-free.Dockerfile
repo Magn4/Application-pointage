@@ -1,14 +1,12 @@
-FROM minio/minio:RELEASE.2025-04-22T22-12-26Z AS minio
-
 FROM node:22-alpine
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 
-COPY --from=minio /usr/bin/minio /usr/local/bin/minio
-
-RUN apk add --no-cache openssl bash tini \
+RUN apk add --no-cache openssl bash tini curl \
+  && curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio -o /usr/local/bin/minio \
+  && chmod +x /usr/local/bin/minio \
   && corepack enable \
   && corepack prepare pnpm@9.15.4 --activate
 

@@ -5,7 +5,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 
 RUN apk add --no-cache openssl bash tini curl \
-  && curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio -o /usr/local/bin/minio \
+  && curl -fsSL -L https://github.com/minio/minio/releases/download/RELEASE.2025-04-22T22-12-26Z/minio.linux-amd64.RELEASE.2025-04-22T22-12-26Z -o /usr/local/bin/minio \
   && chmod +x /usr/local/bin/minio \
   && corepack enable \
   && corepack prepare pnpm@9.15.4 --activate
